@@ -32,8 +32,8 @@ app.use(cors({
     allowedHeaders: ["Content-Type", "Authorization"],
 }));
 
-// 🔥 FIXED for Express 5: Use (.*) instead of * for wildcard
-app.options('(.*)', cors());
+// 🔥 FIXED for Express 5: Use Regex /.*/ to match all routes without string parsing errors
+app.options(/.*/, cors());
 
 
 app.use(express.json());
