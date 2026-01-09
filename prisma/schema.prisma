@@ -1,0 +1,180 @@
+// This is your Prisma schema file
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+
+// 1. Users & Auth
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String
+  name      String
+  role      Role     @default(PATIENT)
+  avatarUrl String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relationships
+  doctorProfile    DoctorProfile?
+  patientProfile   PatientProfile?
+  sentMessages     Message[]
+  conversations    ConversationParticipant[]
+  appointmentsAsDoctor Appointment[] @relation("DoctorAppointments")
+  appointmentsAsPatient Appointment[] @relation("PatientAppointments")
+  createdReminders MedicationReminder[] @relation("DoctorReminders")
+  receivedReminders MedicationReminder[] @relation("PatientReminders")
+  notifications    Notification[]
+}
+
+enum Role {
+  DOCTOR
+  PATIENT
+  ADMIN
+}
+
+// 2. Profiles
+model DoctorProfile {
+  id              Int     @id @default(autoincrement())
+  userId          Int     @unique
+  user            User    @relation(fields: [userId], references: [id])
+  specialty       String
+  licenseNumber   String?
+  experienceYears Int?
+  clinicName      String?
+  clinicAddress   String?
+  bio             String?
+}
+
+model PatientProfile {
+  id               Int      @id @default(autoincrement())
+  userId           Int      @unique
+  user             User     @relation(fields: [userId], references: [id])
+  phone            String?
+  dob              DateTime?
+  emergencyContact String?
+  bloodType        String?
+  height           Float?   // cm
+  weight           Float?   // kg
+  
+  // JSON fields for simple lists (Frontend just asks for a list)
+  medicalHistory   String[] // Array of strings (PostgreSQL specific) or JSON
+  allergies        String[]
+  chronicConditions String[]
+
+  medications      Medication[]
+  vitals           Vital[]
+}
+
+// 3. Medical Records (Supports Patient Case Modal)
+model Medication {
+  id               Int            @id @default(autoincrement())
+  patientProfileId Int
+  patientProfile   PatientProfile @relation(fields: [patientProfileId], references: [id])
+  name             String
+  dosage           String
+  frequency        String
+  isActive         Boolean        @default(true)
+}
+
+model Vital {
+  id               Int            @id @default(autoincrement())
+  patientProfileId Int
+  patientProfile   PatientProfile @relation(fields: [patientProfileId], references: [id])
+  recordedAt       DateTime       @default(now())
+  systolic         Int
+  diastolic        Int
+  heartRate        Int
+  temperature      Float?
+}
+
+// 4. Appointments (Supports Dashboards)
+model Appointment {
+  id        Int      @id @default(autoincrement())
+  doctorId  Int
+  patientId Int
+  doctor    User     @relation("DoctorAppointments", fields: [doctorId], references: [id])
+  patient   User     @relation("PatientAppointments", fields: [patientId], references: [id])
+  date      DateTime
+  type      String   // "Consultation", "Follow-up"
+  status    ApptStatus @default(PENDING)
+  notes     String?
+}
+
+enum ApptStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+// 5. Messaging
+model Conversation {
+  id           Int       @id @default(autoincrement())
+  updatedAt    DateTime  @updatedAt
+  participants ConversationParticipant[]
+  messages     Message[]
+}
+
+model ConversationParticipant {
+  conversationId Int
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+  userId         Int
+  user           User         @relation(fields: [userId], references: [id])
+  
+  @@id([conversationId, userId])
+}
+
+model Message {
+  id             Int          @id @default(autoincrement())
+  conversationId Int
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+  senderId       Int
+  sender         User         @relation(fields: [senderId], references: [id])
+  text           String
+  isRead         Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+}
+
+// 6. Security & Reset
+model ResetToken {
+  id        Int      @id @default(autoincrement())
+  email     String
+  token     String   @unique // Hashed
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+// 7. Reminders
+model MedicationReminder {
+  id             Int      @id @default(autoincrement())
+  doctorId       Int
+  patientId      Int
+  doctor         User     @relation("DoctorReminders", fields: [doctorId], references: [id])
+  patient        User     @relation("PatientReminders", fields: [patientId], references: [id])
+  medicationName String
+  dosage         String
+  frequency      String
+  startDate      DateTime @default(now())
+  endDate        DateTime?
+  instructions   String?
+  createdAt      DateTime @default(now())
+}
+
+// 8. Notifications
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  type      String   // "MESSAGE", "REMINDER", "SYSTEM"
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}

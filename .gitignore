@@ -1,0 +1,7 @@
+.env
+.env.*
+node_modules/
+prisma/migrations/*
+!prisma/migrations/.gitkeep
+npm-debug.log*
+.DS_Store
