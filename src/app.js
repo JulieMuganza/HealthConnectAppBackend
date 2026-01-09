@@ -15,7 +15,7 @@ const app = express();
 // Middleware
 const allowedOrigins = [
     "http://localhost:5173",
-    process.env.FRONTEND_URL,
+    "https://health-connect-app-frontend.vercel.app", // Hardcoded as requested
 ];
 
 app.use(cors({
@@ -32,8 +32,8 @@ app.use(cors({
     allowedHeaders: ["Content-Type", "Authorization"],
 }));
 
-// 🔥 THIS LINE IS CRITICAL - Handle Preflight
-app.options("*", cors());
+// 🔥 FIXED for Express 5: Use (.*) instead of * for wildcard
+app.options('(.*)', cors());
 
 
 app.use(express.json());
