@@ -2,7 +2,7 @@ require('dotenv').config();
 const app = require('./app');
 const prisma = require('./prisma/client');
 
-const PORT = 5001; // Updated to 5001 to apply latest fixesss stale process
+const PORT = process.env.PORT || 5002; // Use PORT from env (Render) or default to 5002
 
 async function start() {
     try {

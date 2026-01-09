@@ -95,14 +95,20 @@ const getPatientDashboard = async (req, res, next) => {
             orderBy: { date: 'asc' },
         });
 
-        // Active Medications
-        const profile = await prisma.patientProfile.findUnique({
-            where: { userId },
-            include: { medications: { where: { isActive: true } } },
+        // Active Medications (From MedicationReminder to match PatientMedications page)
+        // Fetch reminders for this patient
+        const medications = await prisma.medicationReminder.findMany({
+            where: { patientId: userId },
+            orderBy: { createdAt: 'desc' },
         });
-        const activeMedications = profile?.medications.length || 0;
+
+        const activeMedications = medications.length; // Count all as active for now
 
         // Recent Vitals
+        const profile = await prisma.patientProfile.findUnique({
+            where: { userId },
+            include: { medications: true },
+        });
         const vitals = await prisma.vital.findFirst({
             where: { patientProfileId: profile?.id },
             orderBy: { recordedAt: 'desc' },
@@ -114,8 +120,13 @@ const getPatientDashboard = async (req, res, next) => {
                 date: nextAppointment.date.toLocaleString(), // Simplify formatting
                 doctor: nextAppointment.doctor.name,
             } : null,
-            activeMedications: profile?.medications.length || 0,
-            medications: profile?.medications || [],
+            activeMedications: activeMedications,
+            medications: medications.map(m => ({
+                id: m.id,
+                name: m.medicationName,
+                dosage: m.dosage,
+                frequency: m.frequency
+            })),
             recentVitals: vitals ? {
                 bp: `${vitals.systolic}/${vitals.diastolic}`,
                 heartRate: vitals.heartRate,
