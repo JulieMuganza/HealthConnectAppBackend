@@ -13,13 +13,14 @@ const getDoctorDashboard = async (req, res, next) => {
             where: { role: 'PATIENT' }
         });
 
+        // Count all future/active appointments to show general activity
         const appointmentsToday = await prisma.appointment.count({
             where: {
                 doctorId: userId,
                 date: {
-                    gte: today,
-                    lt: tomorrow,
+                    gte: today, // Any appointment from today onwards
                 },
+                // optional: status: { not: 'CANCELLED' }
             },
         });
 
@@ -30,17 +31,18 @@ const getDoctorDashboard = async (req, res, next) => {
             },
         });
 
-        // Schedule
+        // Schedule - Fetch all upcoming, not just Today
         const schedule = await prisma.appointment.findMany({
             where: {
                 doctorId: userId,
                 date: {
                     gte: today,
-                    lt: tomorrow,
                 },
+                status: 'CONFIRMED' // filter if we only want confirmed in the list
             },
             include: { patient: true },
             orderBy: { date: 'asc' },
+            take: 5 // Limit to 5 for dashboard view
         });
 
         // Requests
