@@ -33,36 +33,34 @@ const getUnreadCount = async (req, res, next) => {
     try {
         const userId = req.user.id;
 
-        // Count unread notifications
-        const unreadNotes = await prisma.notification.count({
+        // Count unread notifications by type
+        // We can do this efficiently with a groupBy or just two queries.
+        // Let's do two counts for simplicity and clarity.
+
+        const messageCount = await prisma.notification.count({
             where: {
                 userId,
-                isRead: false
+                isRead: false,
+                type: 'MESSAGE'
             }
         });
 
-        // Count unread messages (where sender != user AND isRead = false)
-        // We look at all messages in conversations where user is a participant?
-        // Actually, schema has Message.isRead.
-        // We find messages where recipient is the user. But Message table only has senderId.
-        // So we need to find messages in conversations user is part of, where sender != user, and isRead = false.
-
-        const conversations = await prisma.conversationParticipant.findMany({
-            where: { userId },
-            select: { conversationId: true }
-        });
-
-        const convIds = conversations.map(c => c.conversationId);
-
-        const unreadMessages = await prisma.message.count({
+        const reminderCount = await prisma.notification.count({
             where: {
-                conversationId: { in: convIds },
-                senderId: { not: userId },
-                isRead: false
+                userId,
+                isRead: false,
+                type: 'REMINDER'
             }
         });
 
-        res.json({ count: unreadNotes + unreadMessages });
+        // Total
+        const total = messageCount + reminderCount;
+
+        res.json({
+            count: total,
+            messageCount,
+            reminderCount
+        });
     } catch (error) {
         next(error);
     }
