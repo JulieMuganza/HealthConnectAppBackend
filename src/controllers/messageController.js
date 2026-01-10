@@ -72,12 +72,20 @@ const getConversations = async (req, res, next) => {
             orderBy: { updatedAt: 'desc' },
         });
 
-        const formatted = conversations.map((conv) => {
+        const formatted = await Promise.all(conversations.map(async (conv) => {
             const otherParticipant = conv.participants.find((p) => p.userId !== userId);
             const lastMsg = conv.messages[0];
 
-            // Filter out conversations that might be with "self" or weird states if any
             if (!otherParticipant) return null;
+
+            // Count unread messages sent by the OTHER person
+            const unread = await prisma.message.count({
+                where: {
+                    conversationId: conv.id,
+                    senderId: otherParticipant.userId,
+                    isRead: false
+                }
+            });
 
             return {
                 id: conv.id,
@@ -89,11 +97,11 @@ const getConversations = async (req, res, next) => {
                 },
                 lastMessage: lastMsg?.text || 'Start a conversation',
                 time: lastMsg ? lastMsg.createdAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
-                unreadCount: 0,
+                unreadCount: unread,
             };
-        }).filter(Boolean); // Remove nulls
+        }));
 
-        res.json(formatted);
+        res.json(formatted.filter(Boolean));
     } catch (error) {
         next(error);
     }
@@ -103,6 +111,18 @@ const getConversations = async (req, res, next) => {
 const getMessages = async (req, res, next) => {
     try {
         const conversationId = parseInt(req.params.id);
+        const userId = req.user.id;
+
+        // Mark messages as read
+        await prisma.message.updateMany({
+            where: {
+                conversationId,
+                isRead: false,
+                senderId: { not: userId } // Only mark incoming messages
+            },
+            data: { isRead: true }
+        });
+
         const messages = await prisma.message.findMany({
             where: { conversationId },
             orderBy: { createdAt: 'asc' },
