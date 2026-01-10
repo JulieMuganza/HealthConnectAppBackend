@@ -27,16 +27,24 @@ const getAppointments = async (req, res, next) => {
         });
 
         // Format for frontend
-        const formatted = appointments.map(app => ({
-            id: app.id,
-            patientName: app.patient.name,
-            doctorName: app.doctor.name,
-            date: app.date.toISOString().split('T')[0], // YYYY-MM-DD
-            time: app.time, // HH:mm
-            type: app.type, // 'In-Person' or 'Online'
-            status: app.status,
-            patientAvatar: app.patient.avatarUrl
-        }));
+        const formatted = appointments.map(app => {
+            // Extract time from Date object if stored combined, or default
+            const dateObj = new Date(app.date);
+            const dateStr = dateObj.toISOString().split('T')[0];
+            // Format HH:mm from the date object
+            const timeStr = dateObj.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
+
+            return {
+                id: app.id,
+                patientName: app.patient.name,
+                doctorName: app.doctor.name,
+                date: dateStr,
+                time: timeStr,
+                type: app.type,
+                status: app.status,
+                patientAvatar: app.patient.avatarUrl
+            };
+        });
 
         res.json(formatted);
     } catch (error) {
@@ -54,24 +62,27 @@ const createAppointment = async (req, res, next) => {
             return res.status(400).json({ error: 'Missing required fields' });
         }
 
+        // Combine Date and Time
+        const combinedDateTime = new Date(`${date}T${time}:00`);
+
         // Create the appointment
         const appointment = await prisma.appointment.create({
             data: {
                 doctorId,
                 patientId: parseInt(patientId),
-                date: new Date(date),
-                time,
+                date: combinedDateTime,
+                // Time field removed to match Schema
                 type: type || 'In-Person',
                 status: 'Scheduled'
             }
         });
 
         // NOTIFICATION TRIGGER
-        // Notify the patient
         await prisma.notification.create({
             data: {
                 userId: parseInt(patientId),
-                type: 'APPOINTMENT', // Ensure this enum/type is handled if strongly typed, or text matches
+                type: 'APPOINTMENT',
+                title: 'New Appointment', // Added mandatory title
                 message: `New appointment scheduled for ${date} at ${time} (${type || 'In-Person'})`,
                 isRead: false
             }
