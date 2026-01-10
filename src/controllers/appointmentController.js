@@ -73,7 +73,7 @@ const createAppointment = async (req, res, next) => {
                 date: combinedDateTime,
                 // Time field removed to match Schema
                 type: type || 'In-Person',
-                status: 'Scheduled'
+                status: 'CONFIRMED'
             }
         });
 
