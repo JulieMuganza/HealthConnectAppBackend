@@ -186,6 +186,7 @@ const sendMessage = async (req, res, next) => {
                 data: {
                     userId: recipient.userId,
                     type: 'MESSAGE',
+                    title: 'New Message', // Fix: Mandatory field
                     message: `New message from ${req.user.name || 'User'}`,
                     isRead: false
                 }
