@@ -153,6 +153,25 @@ const sendMessage = async (req, res, next) => {
             data: { updatedAt: new Date() },
         });
 
+        // 3. Create Notification for the Recipient
+        // We need to find the OTHER participant in the conversation
+        const participants = await prisma.conversationParticipant.findMany({
+            where: { conversationId }
+        });
+
+        const recipient = participants.find(p => p.userId !== senderId);
+
+        if (recipient) {
+            await prisma.notification.create({
+                data: {
+                    userId: recipient.userId,
+                    type: 'MESSAGE',
+                    message: `New message from ${req.user.name || 'User'}`,
+                    isRead: false
+                }
+            });
+        }
+
         res.status(201).json(message);
     } catch (error) {
         next(error);
